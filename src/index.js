@@ -116,7 +116,8 @@ const html=`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta nam
     ["The Connector","Your email has a social, conversational rhythm. A useful introduction, message, or unexpected conversation may be closer than you think."],
     ["The Wildcard","Your address gives us just enough signal to make a dangerous little guess: you do not always follow your own pattern when something really matters."]
   ];
-  var app=document.getElementById("app"),email="",marketing=false,prediction=null;\n  function track(name,params){try{if(typeof gtag==="function")gtag("event",name,params||{})}catch(_){}}
+  var app=document.getElementById("app"),email="",marketing=false,prediction=null;
+  function track(name,params){try{if(typeof gtag==="function")gtag("event",name,params||{})}catch(_){}}
   function esc(s){return String(s).replace(/[&<>"']/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]})}
   function machine(){return '<div class="machine" aria-hidden="true"><span>✦</span><span>?</span><span>✦</span></div>'}
   function start(){
