@@ -145,7 +145,7 @@ const html=`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta nam
     var button=form.querySelector("button");
     button.disabled=true;
     button.textContent="Sending…";
-    fetch("/api/send",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email:email,firstName:firstName,prediction:prediction,marketing:marketing})}).then(function(r){return r.text().then(function(t){var d;try{d=JSON.parse(t)}catch(_){throw new Error("The email service returned an invalid response.")}d._httpStatus=r.status;return d})}).then(function(d){if(!d.emailSent)throw new Error(d.emailError||d.error||"The email could not be sent.");button.textContent="Sent ✓";track("prediction_email_sent");note.innerHTML="<strong>Prediction accepted.</strong> Brevo accepted the email request.<br><small>Message ID: "+esc(d.messageId||"not returned")+"</small><br><br>Check your inbox and spam folder.";}).catch(function(err){button.disabled=false;button.textContent="UnPredict Me?";track("prediction_email_failed");note.innerHTML="<strong>Prediction ready.</strong> We couldn’t send the email yet — "+esc(err.message)+".";});
+    fetch("/api/send",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email:email,firstName:firstName,prediction:prediction,marketing:marketing})}).then(function(r){return r.text().then(function(t){var d;try{d=JSON.parse(t)}catch(_){throw new Error("The email service returned an invalid response.")}d._httpStatus=r.status;return d})}).then(function(d){if(!d.emailSent)throw new Error(d.emailError||d.error||"The email could not be sent.");button.textContent="Accepted ✓";track("prediction_email_accepted");var messageId=d.messageId||"";note.innerHTML="<strong>Brevo accepted your prediction email.</strong> Delivery is not confirmed yet.<br><small>Message ID: "+esc(messageId||"not returned")+"</small><br><br><span id=\"deliveryStatus\">Checking delivery status…</span>";if(messageId){fetch("/api/email-status?messageId="+encodeURIComponent(messageId)+"&email="+encodeURIComponent(email)).then(function(r){return r.json()}).then(function(s){var status=document.getElementById("deliveryStatus");if(!status)return;if(s.event==="delivered"){status.innerHTML="<strong>Brevo reports delivered to the recipient’s mail server.</strong> If it isn’t visible, check Spam, Promotions, and any email filters.";}else if(s.event==="blocked"||s.event==="hardbounce"||s.event==="invalidemail"||s.event==="error"){status.innerHTML="<strong>Brevo reports a delivery problem:</strong> "+esc(s.reason||s.event)+". Check the message in Brevo’s transactional email logs.";}else if(s.event==="softbounce"||s.event==="deferred"){status.textContent="Brevo has not confirmed delivery yet ("+s.event+"). Check the transactional email logs for details.";}else{status.textContent="Delivery is still unconfirmed. Check Brevo → Transactional → Logs for this message ID.";}}).catch(function(){var status=document.getElementById("deliveryStatus");if(status)status.textContent="Delivery is still unconfirmed. Check Brevo → Transactional → Logs for this message ID.";});}else{var status=document.getElementById("deliveryStatus");if(status)status.textContent="No message ID was returned. Check Brevo’s transactional email logs.";}}).catch(function(err){button.disabled=false;button.textContent="UnPredict Me?";track("prediction_email_failed");note.innerHTML="<strong>Prediction ready.</strong> We couldn’t send the email yet — "+esc(err.message)+".";});
   }
   function page(title,body){app.innerHTML='<section class="card page"><div class="eyebrow">'+esc(title.toUpperCase())+'</div><h2>'+esc(title)+'</h2>'+body+'</section>'}
   function route(){
@@ -217,6 +217,24 @@ https://unpredictme.com/
 - https://unpredictme.com/privacy — privacy policy
 - https://unpredictme.com/terms — terms of service
 `,{headers:{"content-type":"text/plain;charset=UTF-8","cache-control":"public,max-age=86400"}});
+ if(request.method==="GET"&&url.pathname==="/api/email-status"){
+  try{
+   const messageId=String(url.searchParams.get("messageId")||"").trim();
+   const email=String(url.searchParams.get("email")||"").trim().toLowerCase();
+   if(!messageId||!email||!env.BREVO_API_KEY)return Response.json({event:"pending"},{status:200});
+   const qs=new URLSearchParams({days:"7",limit:"2500",sort:"desc"});
+   const r=await fetch("https://api.brevo.com/v3/smtp/statistics/events?"+qs.toString(),{headers:{"accept":"application/json","api-key":env.BREVO_API_KEY}});
+   if(!r.ok)return Response.json({event:"pending"},{status:200});
+   const data=await r.json().catch(()=>({}));
+   const events=Array.isArray(data.events)?data.events:[];
+   const normalizedId=messageId.replace(/^<|>$/g,"");
+   const match=events.find(e=>String(e.messageId||"").replace(/^<|>$/g,"")===normalizedId&&String(e.email||"").toLowerCase()===email);
+   if(!match)return Response.json({event:"pending"},{status:200});
+   const raw=String(match.event||"pending").toLowerCase().replace(/[ _-]/g,"");
+   const allowed=["delivered","blocked","hardbounce","softbounce","invalidemail","deferred","spam","error"];
+   return Response.json({event:allowed.includes(raw)?raw:"pending",reason:String(match.reason||"").slice(0,240)},{status:200});
+  }catch(_){return Response.json({event:"pending"},{status:200})}
+ }
  if(request.method==="POST"&&url.pathname==="/api/signup"){
   try{const body=await request.json(),email=String(body.email||"").trim().toLowerCase(),answers=Array.isArray(body.answers)?body.answers.slice(0,5).map(String):[];
    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return Response.json({error:"Please enter a valid email."},{status:400});
