@@ -1,25 +1,40 @@
 # UnPredictMe
 
-> UnPredictMe is a playful prediction experience that makes unpredictable guesses about you from tiny visible patterns in an email address.
+> UnPredictMe is a playful prediction experience that makes an unpredictable, fun guess about you from one tiny clue: your email address.
 
-## What it is
+UnPredictMe (https://unpredictme.com) is a free web experience. Give it your email address and the prediction machine makes three unpredictable guesses: a prediction about you, something you hate, and something you'll like.
 
-UnPredictMe is an entertainment product. A visitor enters an email address, receives a playful prediction, can say whether the prediction feels accurate, and can optionally provide a first name to have the prediction emailed to them.
+## Key facts
 
-## What makes it different
+- What it is: a playful prediction experience, not a personality test or advice service.
+- How it works: it looks at simple visible patterns in your email address — shape, length, punctuation, numbers — and turns those tiny signals into a surprising prediction.
+- Predictions are generated instantly in your browser. Your email never leaves your device to make the guess.
+- Predictions are entertainment, intentionally unpredictable and playful.
+- Price: free.
+- Maker: Annie Li, an MIT student building playful AI experiences.
+- Contact: hello@unpredictme.com
 
-The experience is intentionally simple and unpredictable: one email address, one surprising guess, and a reason to come back for another prediction.
+## Pages
 
-UnPredictMe does not claim that an email address reveals a person's real personality, identity, or future.
+- Home / prediction machine: https://unpredictme.com/
+- About: https://unpredictme.com/about
+- Pricing: https://unpredictme.com/pricing
+- Contact: https://unpredictme.com/contact
+- Privacy: https://unpredictme.com/privacy
+- Terms: https://unpredictme.com/terms
 
-## Primary website
+## FAQ
 
-https://unpredictme.com/
+**What is UnPredictMe?** A playful prediction experience that makes an unpredictable, fun guess about you from one tiny clue: your email address.
 
-## Key pages
+**Is UnPredictMe an app?** UnPredictMe is currently a web experience at unpredictme.com — no download needed.
 
-- https://unpredictme.com/about — what UnPredictMe is and how it works
-- https://unpredictme.com/pricing — current launch pricing
-- https://unpredictme.com/contact — contact information
-- https://unpredictme.com/privacy — privacy policy
-- https://unpredictme.com/terms — terms of service
+**How does UnPredictMe make predictions?** It looks at simple visible patterns in your email address — shape, length, punctuation, numbers — and turns those tiny signals into a surprising, playful prediction. Entertainment, not a personality test.
+
+**Are the predictions accurate?** They are intentionally unpredictable and playful. Predictions are not facts and should not be treated as advice.
+
+**Does UnPredictMe store my email?** The prediction is generated in your browser; your email never leaves your device to make the guess.
+
+**Is it free?** Yes, UnPredictMe is currently free.
+
+**Who makes UnPredictMe?** Annie Li, an MIT student building playful AI experiences.
