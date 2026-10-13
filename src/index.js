@@ -78,10 +78,18 @@ async function addBrevoContact(env,email,firstName="",marketing=false){
  if(!env.BREVO_API_KEY)return {ok:false,error:"Brevo is not configured on this Worker."};
  const headers={"accept":"application/json","content-type":"application/json","api-key":env.BREVO_API_KEY};
  const attributes=firstName?{FIRSTNAME:firstName}:{};
- let r=await fetch("https://api.brevo.com/v3/contacts",{method:"POST",headers,body:JSON.stringify({email,attributes,updateEnabled:true,...(marketing&&env.BREVO_LIST_ID?{listIds:[Number(env.BREVO_LIST_ID)]}:{})})});
- const data=await r.json().catch(()=>({}));
- if(!r.ok)return {ok:false,status:r.status,error:String(data.message||data.code||"Brevo rejected the contact.")};
- return {ok:true,contactId:data.id||null,marketingAdded:!!(marketing&&env.BREVO_LIST_ID)};
+ const parsedListId=Number(env.BREVO_LIST_ID);
+ const hasListId=Number.isSafeInteger(parsedListId)&&parsedListId>0;
+ const payload={email,attributes,updateEnabled:true};
+ if(marketing&&hasListId)payload.listIds=[parsedListId];
+ try{
+  const r=await fetch("https://api.brevo.com/v3/contacts",{method:"POST",headers,body:JSON.stringify(payload)});
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok)return {ok:false,status:r.status,error:String(data.message||data.code||"Brevo rejected the contact.")};
+  return {ok:true,contactId:data.id||null,marketingAdded:!!(marketing&&hasListId)};
+ }catch(err){
+  return {ok:false,error:String(err&&err.message||"Could not reach Brevo contact API.")};
+ }
 }
 async function sendBrevo(env,email,p,firstName=""){
  if(!env.BREVO_API_KEY||!env.BREVO_SENDER_EMAIL)return {ok:false,error:"Brevo is not configured on this Worker."};
@@ -116,7 +124,7 @@ const html=`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta nam
     ["The Connector","Your email has a social, conversational rhythm. A useful introduction, message, or unexpected conversation may be closer than you think."],
     ["The Wildcard","Your address gives us just enough signal to make a dangerous little guess: you do not always follow your own pattern when something really matters."]
   ];
-  var app=document.getElementById("app"),email="",marketing=false,prediction=null;
+  var app=document.getElementById("app"),email="",marketing=false,prediction=null,signupStatus=null;
   function track(name,params){try{if(typeof gtag==="function")gtag("event",name,params||{})}catch(_){}}
   function esc(s){return String(s).replace(/[&<>"']/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]})}
   function machine(){return '<div class="machine" aria-hidden="true"><span>✦</span><span>?</span><span>✦</span></div>'}
@@ -131,11 +139,12 @@ const html=`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta nam
     var lines=["Looking at the shape of it…","Finding a pattern worth following…","Making one slightly reckless guess…"];
     var i=0;
     var timer=setInterval(function(){i++;var el=document.getElementById("readingLine");if(el&&i<lines.length)el.textContent=lines[i];},650);
-    fetch("/api/signup",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email:email,answers:[],marketing:marketing})}).then(function(r){return r.text().then(function(t){var d;try{d=JSON.parse(t)}catch(_){throw new Error("The prediction service returned an invalid response.")}d._httpStatus=r.status;return d})}).then(function(d){clearInterval(timer);if(d.prediction){prediction=d.prediction;track("prediction_generated");if(d.prediction.testLike)track("prediction_test_detected");result();return}throw new Error(d.error||"Something went wrong.")}).catch(function(err){clearInterval(timer);app.innerHTML='<div class="eyebrow">TINY GLITCH</div><h1>We hit a snag.</h1><section class="card"><div class="question">The machine could not make the prediction.</div><p class="helper">'+esc(err.detail||err.message)+'</p><div style="text-align:center;margin-top:20px"><button class="primary" id="retry">Try again</button></div></section>';document.getElementById("retry").onclick=start});
+    fetch("/api/signup",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email:email,answers:[],marketing:marketing})}).then(function(r){return r.text().then(function(t){var d;try{d=JSON.parse(t)}catch(_){throw new Error("The prediction service returned an invalid response.")}d._httpStatus=r.status;return d})}).then(function(d){clearInterval(timer);if(d.prediction){signupStatus={contactAdded:!!d.contactAdded,marketingAdded:!!d.marketingAdded,contactError:d.contactError||null,marketingError:d.marketingError||null};prediction=d.prediction;track("prediction_generated");if(d.contactAdded)track("brevo_contact_saved");if(d.marketingAdded)track("brevo_marketing_optin_added");if(d.prediction.testLike)track("prediction_test_detected");result();return}throw new Error(d.error||"Something went wrong.")}).catch(function(err){clearInterval(timer);app.innerHTML='<div class="eyebrow">TINY GLITCH</div><h1>We hit a snag.</h1><section class="card"><div class="question">The machine could not make the prediction.</div><p class="helper">'+esc(err.detail||err.message)+'</p><div style="text-align:center;margin-top:20px"><button class="primary" id="retry">Try again</button></div></section>';document.getElementById("retry").onclick=start});
   }
   function result(){
     var signal=prediction.signal||"We noticed a few tiny patterns in the address.";
-    app.innerHTML='<div class="eyebrow">THE MACHINE HAS SPOKEN</div><h1 class="reveal">Okay. We found 3 things.</h1><section class="card reveal"><div class="three-things"><div class="thing thing-main"><div class="thing-num">01</div><div class="thing-label">Prediction</div><h3>'+esc(prediction.title)+'</h3><p>'+esc(prediction.text)+'</p></div><div class="thing"><div class="thing-num">02</div><div class="thing-label">Something you hate</div><h3>'+esc(prediction.hate||"We’re keeping this one unpredictable.")+'</h3></div><div class="thing"><div class="thing-num">03</div><div class="thing-label">Something you’ll like</div><h3>'+esc(prediction.like||"We’re keeping this one unpredictable.")+'</h3></div></div><div class="signal-bar"><span class="signal-chip">'+esc(signal)+'</span></div><p class="helper">These are playful guesses, not facts about you. The fun is seeing whether any of them feel oddly close.</p><div class="buttons"><button class="primary" id="yes">That’s me. 👀</button><button class="secondary" id="no">Not even close.</button></div><div id="feedbackArea"></div><div class="name-step" style="margin-top:28px;padding-top:24px;border-top:1px solid #d7cdf0"><div class="qnum">ONE LAST CLUE</div><div class="question" style="font-size:30px">What’s your first name?</div><p class="intro" style="margin-bottom:12px">We’ll use it to make your email feel a little more personal.</p><form id="nameForm"><div class="email"><input id="firstName" type="text" placeholder="Your first name" autocomplete="given-name" maxlength="60" required><button class="primary" type="submit">UnPredict Me?</button></div></form><p class="helper" id="deliveryNote">Your 3 things are ready. Enter your first name to send them to <strong>'+esc(email)+'</strong>.</p></div></section>'
+    app.innerHTML='<div class="eyebrow">THE MACHINE HAS SPOKEN</div><h1 class="reveal">Okay. We found 3 things.</h1><section class="card reveal"><div class="three-things"><div class="thing thing-main"><div class="thing-num">01</div><div class="thing-label">Prediction</div><h3>'+esc(prediction.title)+'</h3><p>'+esc(prediction.text)+'</p></div><div class="thing"><div class="thing-num">02</div><div class="thing-label">Something you hate</div><h3>'+esc(prediction.hate||"We’re keeping this one unpredictable.")+'</h3></div><div class="thing"><div class="thing-num">03</div><div class="thing-label">Something you’ll like</div><h3>'+esc(prediction.like||"We’re keeping this one unpredictable.")+'</h3></div></div><div class="signal-bar"><span class="signal-chip">'+esc(signal)+'</span></div><p class="helper" id="signupStatus"></p><p class="helper">These are playful guesses, not facts about you. The fun is seeing whether any of them feel oddly close.</p><div class="buttons"><button class="primary" id="yes">That’s me. 👀</button><button class="secondary" id="no">Not even close.</button></div><div id="feedbackArea"></div><div class="name-step" style="margin-top:28px;padding-top:24px;border-top:1px solid #d7cdf0"><div class="qnum">ONE LAST CLUE</div><div class="question" style="font-size:30px">What’s your first name?</div><p class="intro" style="margin-bottom:12px">We’ll use it to make your email feel a little more personal.</p><form id="nameForm"><div class="email"><input id="firstName" type="text" placeholder="Your first name" autocomplete="given-name" maxlength="60" required><button class="primary" type="submit">UnPredict Me?</button></div></form><p class="helper" id="deliveryNote">Your 3 things are ready. Enter your first name to send them to <strong>'+esc(email)+'</strong>.</p></div></section>'
+    var signupStatusEl=document.getElementById("signupStatus");if(signupStatusEl&&signupStatus){var signupProblems=[];if(!signupStatus.contactAdded)signupProblems.push("We couldn’t save this address to Brevo contacts"+(signupStatus.contactError?": "+signupStatus.contactError:"."));if(marketing&&!signupStatus.marketingAdded)signupProblems.push(signupStatus.marketingError||"Your marketing opt-in wasn’t added to a Brevo list. Configure BREVO_LIST_ID in Cloudflare to enable this.");if(signupProblems.length){signupStatusEl.textContent=signupProblems.join(" ");signupStatusEl.style.color="#8b3b26";signupStatusEl.setAttribute("role","status");}else{signupStatusEl.textContent="";}}
     document.getElementById("yes").onclick=function(){track("prediction_feedback",{response:"yes"});document.getElementById("feedbackArea").innerHTML='<p class="feedback">We’ll take that. The machine may be onto something.</p>';};
     document.getElementById("no").onclick=function(){track("prediction_feedback",{response:"no"});document.getElementById("feedbackArea").innerHTML='<p class="feedback">Fair. The machine is keeping its secrets.</p>';};
     document.getElementById("nameForm").onsubmit=function(ev){ev.preventDefault();var input=document.getElementById("firstName");if(!input.checkValidity()){input.reportValidity();return}sendPrediction(input.value.trim());};
@@ -240,7 +249,20 @@ https://unpredictme.com/
   try{const body=await request.json(),email=String(body.email||"").trim().toLowerCase(),answers=Array.isArray(body.answers)?body.answers.slice(0,5).map(String):[];
    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return Response.json({error:"Please enter a valid email."},{status:400});
    const prediction=makePrediction(email,answers);
-   return Response.json({prediction,testLike:!!prediction.testLike});
+   const marketing=body.marketing===true;
+   const contactResult=await addBrevoContact(env,email,"",marketing);
+   const marketingError=marketing&&contactResult.ok&&!contactResult.marketingAdded
+    ?(env.BREVO_LIST_ID?"The configured BREVO_LIST_ID is invalid.":"Marketing opt-in was selected, but BREVO_LIST_ID is not configured on this Worker.")
+    :null;
+   return Response.json({
+    prediction,
+    testLike:!!prediction.testLike,
+    contactAdded:!!contactResult.ok,
+    contactId:contactResult.contactId||null,
+    marketingAdded:!!contactResult.marketingAdded,
+    contactError:contactResult.ok?null:contactResult.error,
+    marketingError
+   });
   }catch(_){return Response.json({error:"We couldn’t make that prediction. Try again."},{status:400})}
  }
  if(request.method==="POST"&&url.pathname==="/api/send"){
