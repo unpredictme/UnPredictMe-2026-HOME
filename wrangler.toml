@@ -2,6 +2,7 @@ name = "home9-18-26"
 main = "src/index.js"
 compatibility_date = "2026-09-17"
 workers_dev = true
+routes = [{ pattern = "unpredictme.com", custom_domain = true }]
 
 [vars]
 BREVO_SENDER_EMAIL = "invite@unpredictme.com"
