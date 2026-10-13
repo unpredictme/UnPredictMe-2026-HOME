@@ -5,7 +5,7 @@ workers_dev = true
 
 [vars]
 BREVO_SENDER_EMAIL = "invite@unpredictme.com"
-BREVO_SENDER_NAME = "Jen @UnPredictMe"
+BREVO_SENDER_NAME = "Annie @UnPredictMe"
 
 [secrets]
 required = ["BREVO_API_KEY"]
